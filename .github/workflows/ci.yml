@@ -1,0 +1,31 @@
+name: CI
+
+   on:
+     push:
+       branches: [main]
+     pull_request:
+       branches: [main]
+
+   jobs:
+     build:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Check out the code
+           uses: actions/checkout@v4
+
+         - name: Set up Docker Buildx
+           uses: docker/setup-buildx-action@v3
+
+         - name: Build the backend image
+           uses: docker/build-push-action@v6
+           with:
+             context: ./backend
+             push: false
+             tags: aurora-backend:ci
+
+         - name: Build the frontend image
+           uses: docker/build-push-action@v6
+           with:
+             context: ./frontend
+             push: false
+             tags: aurora-frontend:ci
