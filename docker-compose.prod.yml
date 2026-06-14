@@ -1,0 +1,60 @@
+# Production compose — runs on the Azure server.
+# Key difference from the dev compose: services PULL pre-built images from
+# DockerHub (image:) instead of building from source (build:). The server
+# never compiles anything; it just runs the artifacts your pipeline published.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - aurora_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    image: ${DOCKERHUB_USERNAME}/aurora-backend:latest
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # One-shot: create tables + seed sample data, then exit.
+  seed:
+    image: ${DOCKERHUB_USERNAME}/aurora-backend:latest
+    command: ["npm", "run", "seed"]
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  frontend:
+    image: ${DOCKERHUB_USERNAME}/aurora-frontend:latest
+    ports:
+      - "80:80"            # standard web port — reachable at http://<server-ip>
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  aurora_pgdata:
