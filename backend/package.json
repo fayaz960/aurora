@@ -1,0 +1,17 @@
+{
+  "name": "aurora-backend",
+  "version": "1.0.0",
+  "description": "Aurora infrastructure monitoring API",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "seed": "node src/seed.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}

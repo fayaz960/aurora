@@ -1,0 +1,62 @@
+# Docker Compose defines and runs the whole multi-container app with one command.
+# Three services: a database, the API, and the web frontend.
+
+services:
+  # --- PostgreSQL database ---
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      # Named volume = data survives container restarts.
+      - aurora_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # --- Node.js API ---
+  backend:
+    build: ./backend
+    environment:
+      PORT: 4000
+      DB_HOST: db          # "db" = the service name above; Docker resolves it
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    depends_on:
+      db:
+        condition: service_healthy   # wait until Postgres is actually ready
+    restart: unless-stopped
+
+  # --- One-shot job: create tables + insert sample data, then exit ---
+  seed:
+    build: ./backend
+    command: ["npm", "run", "seed"]
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # --- React frontend served by nginx (also proxies /api to backend) ---
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"            # open http://localhost:8080 in your browser
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  aurora_pgdata:
